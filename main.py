@@ -1,43 +1,44 @@
 """
-Medium.com session keeper - Day 1 task.
-
-Sequence:
-  1. Launch Chrome with a PERSISTENT profile (profiles/chrome_profile)
-  2. Open medium.com
-  3. If already signed in (cookie 'sid' present) -> done, exit
-  4. Otherwise: wait while the human manually signs up in that same window
-  5. Once the 'sid' cookie appears -> signed in, session is saved to disk
-  6. Every future run of this script reuses that profile -> stays signed in
-
-Run this from the project ROOT (the mindcob folder that contains
-pages/, utils/, profiles/) - not from inside a subfolder - because the
-imports below are relative to this file's own location.
+Medium.com session keeper - Senior Developer Architecture.
 """
-
 from pages.medium_page import MediumPage
-from utils.driver_factory import create_driver
+from utils.driver_factory import (
+    launch_native_chrome,
+    close_chrome_process,
+    random_sleep,
+)
 
 
 def main() -> None:
-    driver = create_driver()
+    page = MediumPage()
+
+    # Check if already signed in from saved profile
+    if page.is_signed_in():
+        print("\n[+] SUCCESS: Already signed in! Session loaded from profiles/chrome_profile.")
+        print("[+] Opening Chrome browser with your active session...")
+        proc = launch_native_chrome("https://medium.com")
+        print("[+] Your session is active and verified.")
+        print("[+] Closing browser in 3 seconds...")
+        random_sleep(2.5, 3.5)
+        close_chrome_process(proc)
+        return
+
+    # If not signed in, launch clean native Chrome and wait for sign in / up
+    print("[+] Launching clean native Chrome instance...")
+    proc = launch_native_chrome("https://medium.com")
     try:
-        page = MediumPage(driver)
-        page.open_home()
-
-        if page.is_signed_in():
-            print("[+] Already signed in - session loaded from profiles/chrome_profile")
-            return
-
-        if page.wait_for_human_signup():
-            print("[+] SUCCESS - you are signed in to medium.com.")
-            print("[+] Session saved to profiles/chrome_profile.")
-            print("[+] Run this script again anytime - you will stay signed in.")
+        if page.wait_for_human_signup(proc):
+            print("\n[+] SUCCESS: Sign in / Sign up complete!")
+            print("[+] Session saved permanently to profiles/chrome_profile.")
+            print("[+] Closing browser in 2 seconds...")
+            random_sleep(1.5, 2.5)
+            close_chrome_process(proc)
         else:
-            print("[-] Timed out (15 min). Run again and finish the signup a bit faster.")
+            print("\n[-] Sign in not detected within timeout. Run again to finish sign in.")
+            close_chrome_process(proc)
     except KeyboardInterrupt:
-        print("\n[!] Stopped by you (Ctrl+C). Run again to continue.")
-    finally:
-        driver.quit()
+        print("\n[!] Stopped by user (Ctrl+C).")
+        close_chrome_process(proc)
 
 
 if __name__ == "__main__":
